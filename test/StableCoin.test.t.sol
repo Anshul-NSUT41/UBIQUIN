@@ -7,7 +7,7 @@ import {StableCoin} from "../src/StableCoin.sol";
 contract StableCoinTest is Test{
     StableCoin public stableCoin ;
     address public owner = address(0x1);
-    address public treasury = address(0x2);
+    address public treasury = address(0x3);
 
     function setUp() public {
         stableCoin = new StableCoin();
