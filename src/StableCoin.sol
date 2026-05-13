@@ -8,12 +8,11 @@ contract StableCoin is ERC20, Ownable {
 
     error Not_Treasury();
 
-    constructor() ERC20("StableCoin", "STC") Ownable(msg.sender) {}
-
-    function setTreasury(address _treasury) external onlyOwner {
-        s_treasury = _treasury;
+    constructor(address treasury) ERC20("StableCoin", "STC") Ownable(msg.sender) {
+        s_treasury = treasury;
     }
 
+    
     function mint(address to, uint256 amount) external {
         if (msg.sender != s_treasury) {
             revert Not_Treasury();
