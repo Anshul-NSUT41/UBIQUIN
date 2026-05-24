@@ -79,4 +79,10 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
         _grantRole(MANAGER_ROLE,       admin);
     }
 
+    // -------------------------
+    // Admin
+    // -------------------------
+    function pause()   external onlyRole(PAUSER_ROLE) { _pause();   }
+    function unpause() external onlyRole(PAUSER_ROLE) { _unpause(); }
 }
+
