@@ -18,6 +18,21 @@ contract Treasury  is ITreasury, ReentrancyGuard, Pausable, AccessControl {
     using OracleLibrary for AggregatorV3Interface;
     using SafeERC20 for IERC20;
 
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
+    // -------------------------
+    // Roles
+    // -------------------------
+    bytes32 public constant PAUSER_ROLE  = keccak256("PAUSER_ROLE");
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+
+    // -------------------------
+    // Protocol Parameters 
+    // -------------------------
+    uint256 private constant LIQUIDATION_THRESHOLD = 80;
+    uint256 private constant LIQUIDATION_PRECISION = 100;
+    uint256 private constant LIQUIDATION_BONUS     = 10;
+    uint256 private constant MIN_HEALTH_FACTOR     = 1e18;
+    uint256 private constant PRECISION             = 1e18;
+
+
+    
 }
