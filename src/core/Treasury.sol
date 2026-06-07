@@ -109,16 +109,39 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
     }
 
     /**
- * @notice Redeem collateral back to your wallet.
- * @dev    Health check runs AFTER redemption — if taking collateral
- *         out breaks your position, the whole tx reverts.
- */
-function redeemCollateral(
-    address collateralToken,
-    uint256 amount
-) external nonReentrant whenNotPaused {
-    _redeemCollateral(msg.sender, msg.sender, collateralToken, amount);
-    _revertIfHealthFactorBroken(msg.sender);  // we'll build this in Segment 4
-}
-}
+     * @notice Redeem collateral back to your wallet.
+     * @dev    Health check runs AFTER redemption — if taking collateral
+     *         out breaks your position, the whole tx reverts.
+     */
+    function redeemCollateral(
+        address collateralToken,
+        uint256 amount
+    ) external nonReentrant whenNotPaused {
+        _redeemCollateral(msg.sender, msg.sender, collateralToken, amount);
+        _revertIfHealthFactorBroken(msg.sender); // we'll build this in Segment 4
+    }
 
+    // =========================================================
+    // INTERNAL — Core Logic
+    // =========================================================
+
+    function _depositCollateral(
+        address user,
+        address token,
+        uint256 amount
+    ) internal {
+        // --- CHECKS ---
+        if (amount == 0) revert Treasury__ZeroAmount();
+        if (priceFeeds[token] == address(0))
+            revert Treasury__InsufficientCollateral();
+
+        // --- EFFECTS ---
+        // Update our internal accounting FIRST, before any token transfer
+        collateralDeposited[user][token] += amount;
+        emit CollateralDeposited(user, token, amount);
+
+        // --- INTERACTIONS ---
+        // Only NOW do we touch the external ERC20 contract
+        IERC20(token).safeTransferFrom(user, address(this), amount);
+    }
+}
