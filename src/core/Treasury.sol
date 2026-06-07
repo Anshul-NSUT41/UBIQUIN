@@ -107,4 +107,17 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
     ) external nonReentrant whenNotPaused {
         _depositCollateral(msg.sender, collateralToken, amount);
     }
+
+    /**
+ * @notice Redeem collateral back to your wallet.
+ * @dev    Health check runs AFTER redemption — if taking collateral
+ *         out breaks your position, the whole tx reverts.
+ */
+function redeemCollateral(
+    address collateralToken,
+    uint256 amount
+) external nonReentrant whenNotPaused {
+    _redeemCollateral(msg.sender, msg.sender, collateralToken, amount);
+    
+}
 }
