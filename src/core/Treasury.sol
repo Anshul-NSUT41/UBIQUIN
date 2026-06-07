@@ -118,6 +118,7 @@ function redeemCollateral(
     uint256 amount
 ) external nonReentrant whenNotPaused {
     _redeemCollateral(msg.sender, msg.sender, collateralToken, amount);
-    
+    _revertIfHealthFactorBroken(msg.sender);  // we'll build this in Segment 4
 }
 }
+
