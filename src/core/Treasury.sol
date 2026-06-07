@@ -144,4 +144,23 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
         // Only NOW do we touch the external ERC20 contract
         IERC20(token).safeTransferFrom(user, address(this), amount);
     }
+
+    function _redeemCollateral(
+        address from, // whose collateral balance to reduce
+        address to, // who physically receives the tokens
+        address token,
+        uint256 amount
+    ) internal {
+        // --- CHECKS ---
+        if (amount == 0) revert Treasury__ZeroAmount();
+
+        // --- EFFECTS ---
+        // Solidity 0.8 will automatically revert on underflow,
+        // so if `from` doesn't have enough collateral this line reverts
+        collateralDeposited[from][token] -= amount;
+        emit CollateralRedeemed(from, token, amount);
+
+        // --- INTERACTIONS ---
+        IERC20(token).safeTransfer(to, amount);
+    }
 }
