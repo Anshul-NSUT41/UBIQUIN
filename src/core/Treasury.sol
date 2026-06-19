@@ -136,18 +136,16 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
             revert Treasury__InsufficientCollateral();
 
         // --- EFFECTS ---
-        // Update our internal accounting FIRST, before any token transfer
         collateralDeposited[user][token] += amount;
         emit CollateralDeposited(user, token, amount);
 
         // --- INTERACTIONS ---
-        // Only NOW do we touch the external ERC20 contract
         IERC20(token).safeTransferFrom(user, address(this), amount);
     }
 
     function _redeemCollateral(
-        address from, // whose collateral balance to reduce
-        address to, // who physically receives the tokens
+        address from, 
+        address to, 
         address token,
         uint256 amount
     ) internal {
@@ -155,8 +153,6 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
         if (amount == 0) revert Treasury__ZeroAmount();
 
         // --- EFFECTS ---
-        // Solidity 0.8 will automatically revert on underflow,
-        // so if `from` doesn't have enough collateral this line reverts
         collateralDeposited[from][token] -= amount;
         emit CollateralRedeemed(from, token, amount);
 
@@ -188,7 +184,7 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
         uint256 amount
     ) external nonReentrant whenNotPaused {
         _redeemCollateral(msg.sender, msg.sender, collateralToken, amount);
-        _revertIfHealthFactorBroken(msg.sender); // we'll build this in Segment 4
+        _revertIfHealthFactorBroken(msg.sender); 
     }
 
     // =========================================================
@@ -206,12 +202,10 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
             revert Treasury__InsufficientCollateral();
 
         // --- EFFECTS ---
-        // Update our internal accounting FIRST, before any token transfer
         collateralDeposited[user][token] += amount;
         emit CollateralDeposited(user, token, amount);
 
         // --- INTERACTIONS ---
-        // Only NOW do we touch the external ERC20 contract
         IERC20(token).safeTransferFrom(user, address(this), amount);
     }
 
@@ -270,5 +264,74 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
         uint256 amount
     ) external nonReentrant whenNotPaused {
         _burnStableCoin(msg.sender, msg.sender, amount);
+    }
+
+    /**
+     * @notice Deposit collateral AND mint stablecoin in one transaction.
+     * @dev    Most common user flow. Health check happens inside _mintStableCoin.
+     */
+
+    function depositCollateralAndMint(
+        address collateralToken,
+        uint256 collateralAmount,
+        uint256 mintAmount
+    ) external nonReentrant whenNotPaused {
+        _depositCollateral(msg.sender, collateralToken, collateralAmount);
+        _mintStableCoin(msg.sender, mintAmount);
+    }
+
+    /**
+     * @notice Burn stablecoin AND redeem collateral in one transaction.
+     * @dev    Burn FIRST — clears debt before collateral leaves the vault.
+     *         Final health check catches edge cases (e.g. burning 0).
+     */
+    function redeemCollateralAndBurn(
+        address collateralToken,
+        uint256 collateralAmount,
+        uint256 burnAmount
+    ) external nonReentrant whenNotPaused {
+        _burnStableCoin(msg.sender, msg.sender, burnAmount);
+        _redeemCollateral(
+            msg.sender,
+            msg.sender,
+            collateralToken,
+            collateralAmount
+        );
+        _revertIfHealthFactorBroken(msg.sender); // built in Segment 4
+    }
+
+    function _mintStableCoin(address user, uint256 amount) internal {
+        // --- CHECKS ---
+        if (amount == 0) revert Treasury__ZeroAmount();
+
+        // --- EFFECTS ---
+        debtMinted[user] += amount;
+        _revertIfHealthFactorBroken(user);
+
+        // --- INTERACTIONS ---
+        stableCoin.mint(user, amount);
+        emit StableCoinMinted(user, amount);
+    }
+
+    /**
+     * @dev Burns USC from `payer` to reduce `onBehalfOf`'s debt.
+     *
+     *      Normal burn:    onBehalfOf = msg.sender,  payer = msg.sender
+     *      Liquidation:    onBehalfOf = victim,       payer = liquidator
+     */
+    function _burnStableCoin(
+        address onBehalfOf, 
+        address payer,
+        uint256 amount
+    ) internal {
+        // --- CHECKS ---
+        if (amount == 0) revert Treasury__ZeroAmount();
+
+        // --- EFFECTS ---
+        debtMinted[onBehalfOf] -= amount;
+
+        // --- INTERACTIONS ---
+        stableCoin.burnFrom(payer, amount);
+        emit StableCoinBurned(onBehalfOf, amount);
     }
 }
