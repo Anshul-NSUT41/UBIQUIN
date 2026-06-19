@@ -364,4 +364,42 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
             revert Treasury__HealthFactorTooLow(hf);
         }
     }
+
+    /**
+     * @notice Computes health factor for a user.
+     * @dev    Returns type(uint256).max for zero-debt positions —
+     *         they are infinitely healthy.
+     * @return Health factor scaled to 1e18.
+     *         >= 1e18 → safe, < 1e18 → liquidatable
+     */
+    function _healthFactor(address user) internal view returns (uint256) {
+        (uint256 collateralUsd, uint256 debtUsd) = _getAccountInfo(user);
+        if (debtUsd == 0) return type(uint256).max;
+
+        uint256 adjustedCollateral = (collateralUsd * LIQUIDATION_THRESHOLD) /
+            LIQUIDATION_PRECISION;
+
+        return (adjustedCollateral * PRECISION) / debtUsd;
+    }
+
+    /**
+     * @notice Returns total collateral USD value and total debt for a user.
+     * @dev    Loops through every whitelisted token and sums their USD value.
+     */
+    function _getAccountInfo(
+        address user
+    ) internal view returns (uint256 totalCollateralUsd, uint256 totalDebtUsd) {
+        totalDebtUsd = debtMinted[user];
+
+        uint256 len = collateralTokens.length;
+        for (uint256 i = 0; i < len; i++) {
+            address token = collateralTokens[i];
+            uint256 amount = collateralDeposited[user][token];
+
+            if (amount == 0) continue;
+
+            totalCollateralUsd += AggregatorV3Interface(priceFeeds[token])
+                .getUsdValue(amount);
+        }
+    }
 }
