@@ -261,4 +261,14 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
     ) external nonReentrant whenNotPaused {
         _mintStableCoin(msg.sender, amount);
     }
+
+    /**
+     * @notice Burn stablecoin to reduce your debt.
+     * @dev    You are both the payer and the debt owner here.
+     */
+    function burnStableCoin(
+        uint256 amount
+    ) external nonReentrant whenNotPaused {
+        _burnStableCoin(msg.sender, msg.sender, amount);
+    }
 }
