@@ -144,8 +144,8 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
     }
 
     function _redeemCollateral(
-        address from, 
-        address to, 
+        address from,
+        address to,
         address token,
         uint256 amount
     ) internal {
@@ -184,7 +184,7 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
         uint256 amount
     ) external nonReentrant whenNotPaused {
         _redeemCollateral(msg.sender, msg.sender, collateralToken, amount);
-        _revertIfHealthFactorBroken(msg.sender); 
+        _revertIfHealthFactorBroken(msg.sender);
     }
 
     // =========================================================
@@ -320,7 +320,7 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
      *      Liquidation:    onBehalfOf = victim,       payer = liquidator
      */
     function _burnStableCoin(
-        address onBehalfOf, 
+        address onBehalfOf,
         address payer,
         uint256 amount
     ) internal {
@@ -333,5 +333,35 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
         // --- INTERACTIONS ---
         stableCoin.burnFrom(payer, amount);
         emit StableCoinBurned(onBehalfOf, amount);
+    }
+
+    // =========================================================
+    // EXTERNAL VIEW
+    // =========================================================
+
+    function getAccountInfo(
+        address user
+    )
+        external
+        view
+        returns (uint256 totalCollateralValueUsd, uint256 totalDebtUsd)
+    {
+        return _getAccountInfo(user);
+    }
+
+    // =========================================================
+    // INTERNAL — Health Factor
+    // =========================================================
+
+    /**
+     * @notice Reverts if user's health factor is below minimum.
+     * @dev    Called after ANY state change that increases debt
+     *         or decreases collateral.
+     */
+    function _revertIfHealthFactorBroken(address user) internal view {
+        uint256 hf = _healthFactor(user);
+        if (hf < MIN_HEALTH_FACTOR) {
+            revert Treasury__HealthFactorTooLow(hf);
+        }
     }
 }
