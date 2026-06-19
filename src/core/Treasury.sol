@@ -248,4 +248,17 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
     function getCollateralTokens() external view returns (address[] memory) {
         return collateralTokens;
     }
+
+    // =========================================================
+    // EXTERNAL — Mint & Burn (user-facing functions)
+    // =========================================================
+
+    /**
+     * @notice Mint stablecoin only (must already have collateral deposited).
+     */
+    function mintStableCoin(
+        uint256 amount
+    ) external nonReentrant whenNotPaused {
+        _mintStableCoin(msg.sender, amount);
+    }
 }
