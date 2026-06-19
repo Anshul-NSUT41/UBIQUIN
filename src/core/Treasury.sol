@@ -118,6 +118,76 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
         uint256 amount
     ) external nonReentrant whenNotPaused {
         _redeemCollateral(msg.sender, msg.sender, collateralToken, amount);
+        _revertIfHealthFactorBroken(msg.sender);
+    }
+
+    // =========================================================
+    // INTERNAL — Core Logic
+    // =========================================================
+
+    function _depositCollateral(
+        address user,
+        address token,
+        uint256 amount
+    ) internal {
+        // --- CHECKS ---
+        if (amount == 0) revert Treasury__ZeroAmount();
+        if (priceFeeds[token] == address(0))
+            revert Treasury__InsufficientCollateral();
+
+        // --- EFFECTS ---
+        // Update our internal accounting FIRST, before any token transfer
+        collateralDeposited[user][token] += amount;
+        emit CollateralDeposited(user, token, amount);
+
+        // --- INTERACTIONS ---
+        // Only NOW do we touch the external ERC20 contract
+        IERC20(token).safeTransferFrom(user, address(this), amount);
+    }
+
+    function _redeemCollateral(
+        address from, // whose collateral balance to reduce
+        address to, // who physically receives the tokens
+        address token,
+        uint256 amount
+    ) internal {
+        // --- CHECKS ---
+        if (amount == 0) revert Treasury__ZeroAmount();
+
+        // --- EFFECTS ---
+        // Solidity 0.8 will automatically revert on underflow,
+        // so if `from` doesn't have enough collateral this line reverts
+        collateralDeposited[from][token] -= amount;
+        emit CollateralRedeemed(from, token, amount);
+
+        // --- INTERACTIONS ---
+        IERC20(token).safeTransfer(to, amount);
+    }
+
+    // =========================================================
+    // EXTERNAL — Deposit & Redeem (user-facing functions)
+    // =========================================================
+
+    /**
+     * @notice Deposit collateral only (no minting).
+     */
+    function depositCollateral(
+        address collateralToken,
+        uint256 amount
+    ) external nonReentrant whenNotPaused {
+        _depositCollateral(msg.sender, collateralToken, amount);
+    }
+
+    /**
+     * @notice Redeem collateral back to your wallet.
+     * @dev    Health check runs AFTER redemption — if taking collateral
+     *         out breaks your position, the whole tx reverts.
+     */
+    function redeemCollateral(
+        address collateralToken,
+        uint256 amount
+    ) external nonReentrant whenNotPaused {
+        _redeemCollateral(msg.sender, msg.sender, collateralToken, amount);
         _revertIfHealthFactorBroken(msg.sender); // we'll build this in Segment 4
     }
 
@@ -162,5 +232,20 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
 
         // --- INTERACTIONS ---
         IERC20(token).safeTransfer(to, amount);
+    }
+
+    // =========================================================
+    // EXTERNAL VIEW — Read collateral data
+    // =========================================================
+
+    function getCollateralValueUsd(
+        address token,
+        uint256 amount
+    ) external view returns (uint256) {
+        return AggregatorV3Interface(priceFeeds[token]).getUsdValue(amount);
+    }
+
+    function getCollateralTokens() external view returns (address[] memory) {
+        return collateralTokens;
     }
 }
