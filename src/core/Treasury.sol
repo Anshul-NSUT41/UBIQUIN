@@ -402,4 +402,67 @@ contract Treasury is ITreasury, ReentrancyGuard, Pausable, AccessControl {
                 .getUsdValue(amount);
         }
     }
+
+    // =========================================================
+    // EXTERNAL VIEW
+    // =========================================================
+
+    function getHealthFactor(address user) external view returns (uint256) {
+        return _healthFactor(user);
+    }
+
+    function getAccountInfo(
+        address user
+    )
+        external
+        view
+        returns (uint256 totalCollateralValueUsd, uint256 totalDebtUsd)
+    {
+        return _getAccountInfo(user);
+    }
+
+    // =========================================================
+// EXTERNAL — Liquidation
+// =========================================================
+
+/**
+ * @notice Liquidate an undercollateralized position.
+ * @dev    Liquidator repays `debtToCover` USC on behalf of `user`,
+ *         receives equivalent collateral + 10% bonus.
+ *         Liquidator must have approved Treasury to spend their USC.
+ *
+ * @param collateralToken 
+ * @param user            
+ * @param debtToCover     
+ */
+function liquidate(
+    address collateralToken,
+    address user,
+    uint256 debtToCover
+) external nonReentrant whenNotPaused {
+
+    // --- CHECKS ---
+    if (debtToCover == 0) revert Treasury__ZeroAmount();
+    uint256 startingHF = _healthFactor(user);
+    if (startingHF >= MIN_HEALTH_FACTOR) {
+        revert Treasury__HealthFactorOk();
+    }
+
+    // --- EFFECTS + INTERACTIONS ---
+    uint256 collateralToSeize = _getCollateralToSeize(
+        collateralToken,
+        debtToCover
+    );
+
+    _burnStableCoin(user, msg.sender, debtToCover);
+    _redeemCollateral(user, msg.sender, collateralToken, collateralToSeize);
+
+    // --- FINAL SAFETY CHECK ---
+    uint256 endingHF = _healthFactor(user);
+    if (endingHF <= startingHF) {
+        revert Treasury__HealthFactorTooLow(endingHF);
+    }
+
+    emit Liquidated(user, msg.sender, debtToCover);
+}
 }
