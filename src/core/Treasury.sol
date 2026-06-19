@@ -465,4 +465,22 @@ function liquidate(
 
     emit Liquidated(user, msg.sender, debtToCover);
 }
+
+// =========================================================
+// INTERNAL — Liquidation Math
+// =========================================================
+
+/**
+ * @notice Calculates how much collateral to seize for a given debt amount.
+ * @dev    Converts debt USD value → collateral token amount → adds 10% bonus.
+ */
+function _getCollateralToSeize(
+    address token,
+    uint256 debtToCover
+) internal view returns (uint256) {
+    uint256 tokenAmount = AggregatorV3Interface(priceFeeds[token])
+        .getTokenAmountFromUsd(debtToCover);
+    uint256 bonus = (tokenAmount * LIQUIDATION_BONUS) / LIQUIDATION_PRECISION;
+    return tokenAmount + bonus;
+}
 }
